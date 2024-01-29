@@ -1,0 +1,269 @@
+<html>
+
+<head>
+    <title>Map</title>
+
+
+    <style>
+        #map {
+            height: calc(100vh - 20px);
+        }
+    </style>
+
+</head>
+
+
+
+<body>
+
+
+    <div id="app">
+
+        <div style="display:grid;grid-template-columns:150px auto">
+            <div>
+                <button v-on:click="setOverlayColor">Set Color</button>
+                <br />
+                <button v-on:click="loadKml">Load Kml</button>
+            </div>
+            <div id="map">
+
+            </div>
+        </div>
+
+
+    </div>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=app.initMap&libraries=drawing,geometry&v=weekly"
+        defer></script>
+
+
+    <script>
+
+
+
+        var app = new Vue({
+            el: '#app',
+            data: {
+                map: null,
+                polyline: null,
+                message: 'Hello Vue!',
+                overlays: [],
+                setdOverlayType: null,
+                setdOverlay: null
+            },
+            mounted() {
+
+
+
+
+            },
+            methods: {
+
+                setOverlayColor() {
+                    let color = '#' + Math.floor(Math.random() * 16777215).toString(16);
+                    if (this.setdOverlay) {
+
+
+
+                        if (this.setdOverlayType == 'polyline') {
+                            this.setdOverlay.setOptions({ strokeColor: color });
+                        }
+                        else {
+                            this.setdOverlay.setOptions({ fillColor: color, fillOpacity: .65 });
+                        }
+                    }
+                },
+
+                loadKml() {
+
+                    const ctaLayer = new google.maps.KmlLayer({
+                        url: "https://googlearchive.github.io/js-v2-samples/ggeoxml/cta.kml",
+                        map: this.map,
+                    });
+
+                },
+
+                initMap() {
+
+                    this.map = new google.maps.Map(document.getElementById("map"), {
+                        center: { lat: 41.876, lng: -87.624 },
+                        zoom: 8,
+                    });
+                    const drawingManager = new google.maps.drawing.DrawingManager({
+                        drawingMode: google.maps.drawing.OverlayType.MARKER,
+                        drawingControl: true,
+                        drawingControlOptions: {
+                            position: google.maps.ControlPosition.TOP_CENTER,
+                            drawingModes: [
+                                google.maps.drawing.OverlayType.MARKER,
+                                google.maps.drawing.OverlayType.CIRCLE,
+                                google.maps.drawing.OverlayType.POLYGON,
+                                google.maps.drawing.OverlayType.POLYLINE,
+                                google.maps.drawing.OverlayType.RECTANGLE,
+                            ],
+                        },
+                        markerOptions: {
+                            icon: "https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png",
+                        },
+                        circleOptions: {
+                            fillColor: "#ffff00",
+                            fillOpacity: 1,
+                            strokeWeight: 1,
+                            clickable: true,
+                            editable: true,
+                            zIndex: 1,
+                            draggable: true
+                        },
+
+                        polygonOptions: {
+                            clickable: true,
+                            strokeWeight: 1,
+                            editable: true,
+                            zIndex: 1,
+                            draggable: true
+                        },
+
+                        rectangleOptions: {
+                            clickable: true,
+                            editable: true,
+                            strokeWeight: 1,
+                            zIndex: 1,
+                            draggable: true
+                        },
+                        polylineOptions: {
+                            clickable: true,
+                            editable: true,
+                            zIndex: 1,
+                            draggable: true
+                        },
+                        markerOptions: {
+                            clickable: true,
+                            editable: true,
+                            zIndex: 1,
+                            draggable: true
+                        },
+
+                    });
+
+                    drawingManager.setMap(this.map);
+
+                    let isDrawingStarted = false;
+                    let label = new google.maps.InfoWindow();
+                    let prevLatlng = this.map.center;
+                    let mouseLatLng = this.map.center;
+
+                    google.maps.event.addListener(drawingManager, 'drawingmode_changed', () => {
+                        const drawingMode = drawingManager.getDrawingMode();
+                        isDrawingStarted = drawingMode === google.maps.drawing.OverlayType.POLYLINE;
+                        console.log("drawing changed", prevLatlng, this.map.center)
+                    });
+
+                    google.maps.event.addListener(this.map, 'rightclick', (event) => {
+                        if (isDrawingStarted) {
+                            mouseLatLng = event.latLng;
+                            console.log("prev and cur lat long", prevLatlng, mouseLatLng)
+                            const distance = google.maps.geometry.spherical.computeDistanceBetween(prevLatlng, mouseLatLng);
+
+                            label = new google.maps.InfoWindow({
+                                content: `${distance.toFixed(2)} meters`,
+                                position: mouseLatLng,
+                                maxHeight: 100
+                            });
+
+                            console.log('Distance to reference point,', prevLatlng, ' - ', mouseLatLng, ': ', distance.toFixed(2), 'meters');
+                            label.open(this.map);
+                        }
+                    });
+
+                    google.maps.event.addListener(this.map, 'mousedown', (event) => {
+                        if (isDrawingStarted) {
+                            console.log("mousedown", event.latLng);
+                            prevLatlng = event.latLng;
+                            label.close()
+                        }
+                    });
+
+                    google.maps.event.addListener(drawingManager, 'overlaycomplete', (event) => {
+
+                        console.log(event);
+
+                        let overlay = event.overlay;
+
+                        if (event.type === google.maps.drawing.OverlayType.POLYGON ||
+                            event.type === google.maps.drawing.OverlayType.POLYLINE) {
+
+                            let path = overlay.getPath();
+                            path.getArray().forEach((latLng, index) => {
+                                console.log('Polygon/Polyline Point:', latLng.lat(), latLng.lng());
+
+                                if (index > 0) {
+                                    let prevLatLng = path.getAt(index - 1);
+                                    let distance = google.maps.geometry.spherical.computeDistanceBetween(prevLatLng, latLng);
+                                    console.log('Distance to previous point:', distance.toFixed(2));
+
+                                    let label = new google.maps.InfoWindow({
+                                        content: `${distance.toFixed(2)} meters`,
+                                        position: this.getMidpoint(prevLatLng, latLng),
+                                    });
+
+                                    google.maps.event.addListener(overlay, 'mouseover', (overlayClickEvent) => {
+                                        label.open(this.map);
+                                    });
+
+                                    google.maps.event.addListener(overlay, 'mouseout', (overlayClickEvent) => {
+                                        label.close();
+
+                                    });
+                                }
+                            });
+
+
+
+                        } else if (event.type === google.maps.drawing.OverlayType.RECTANGLE) {
+
+                            let bounds = overlay.getBounds();
+                            let ne = bounds.getNorthEast();
+                            let sw = bounds.getSouthWest();
+                            console.log('Rectangle NE:', ne.lat(), ne.lng());
+                            console.log('Rectangle SW:', sw.lat(), sw.lng());
+
+                        }
+
+                        this.overlays.push(overlay);
+
+                        google.maps.event.addListener(overlay, 'click', (polygonClickEvent) => {
+
+                            this.setdOverlayType = event.type;
+                            this.setdOverlay = overlay;
+
+                        });
+                    });
+                },
+
+                getMidpoint(latlng1, latlng2) {
+                    // Calculate the fraction as 0.5 to get the midpoint
+                    var fraction = 0.5;
+
+                    // Use the interpolate method to find the midpoint
+                    var midpoint = google.maps.geometry.spherical.interpolate(latlng1, latlng2, fraction);
+
+                    return midpoint;
+                }
+
+
+
+            }
+        })
+    </script>
+
+
+
+</body>
+
+
+</html>
