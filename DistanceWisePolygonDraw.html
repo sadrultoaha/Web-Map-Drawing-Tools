@@ -159,11 +159,13 @@
 
                     google.maps.event.addListener(drawingManager, 'drawingmode_changed', () => {
                         const drawingMode = drawingManager.getDrawingMode();
-                        isDrawingStarted = drawingMode === google.maps.drawing.OverlayType.POLYLINE;
+                        isDrawingStarted = drawingMode === google.maps.drawing.OverlayType.POLYLINE || google.maps.drawing.OverlayType.POLYGON;
                         console.log("drawing changed", prevLatlng, this.map.center)
                     });
 
                     google.maps.event.addListener(this.map, 'rightclick', (event) => {
+                        console.log("rightclick")
+                        label.close()
                         if (isDrawingStarted) {
                             mouseLatLng = event.latLng;
                             console.log("prev and cur lat long", prevLatlng, mouseLatLng)
@@ -181,7 +183,7 @@
                     });
 
                     google.maps.event.addListener(this.map, 'mousedown', (event) => {
-                        if (isDrawingStarted) {
+                        if (isDrawingStarted && event.domEvent.button != 2) {
                             console.log("mousedown", event.latLng);
                             prevLatlng = event.latLng;
                             label.close()
